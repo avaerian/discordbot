@@ -10,5 +10,5 @@ anyhow = "1.0.93"
 dotenv = "0.15.0"
 serde = "1.0.215"
 serde_json = "1.0.133"
-serenity = { version = "0.12.4", features = ["model", "cache"] }
+serenity = { version = "0.12.4", features = ["model", "cache", "collector", "utils"] }
 tokio = { version = "1.41.1", features = ["rt", "rt-multi-thread", "macros", "signal"] }

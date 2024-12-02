@@ -1,16 +1,21 @@
-mod commands;
-mod bot;
+pub mod commands;
+pub mod bot;
+pub mod command;
+pub mod component;
 
 use discordbot::{
     bot::BotData,
     commands::purge::PurgeCommand,
     commands::welcome_debug::DebugWelcomeCommand
 };
-use serenity::all::{ActivityData, EventHandler, GatewayIntents, Interaction, Message, MessageUpdateEvent, OnlineStatus, Ready, ResumedEvent};
+use serenity::all::{ActivityData, CreateActionRow, CreateInputText, CreateInteractionResponse, CreateModal, EventHandler, GatewayIntents, InputTextStyle, Interaction, Message, MessageUpdateEvent, OnlineStatus, Ready, ResumedEvent};
 use serenity::client::Context;
 use serenity::{async_trait, Client};
 use std::env;
 use std::sync::Arc;
+use std::time::Duration;
+use discordbot::commands::embed_creator::EmbedCreatorCommand;
+use crate::command::CommandContext;
 
 struct BotEventHandler {
     bot: Arc<BotData>
@@ -33,6 +38,7 @@ impl EventHandler for BotEventHandler {
         // Register commands
         bot.register_global_command(&ctx, DebugWelcomeCommand).await.expect("Failed to register command");
         bot.register_global_command(&ctx, PurgeCommand).await.expect("Failed to register command");
+        bot.register_global_command(&ctx, EmbedCreatorCommand).await.expect("Failed to register command");
 
         println!("Ready!")
     }
@@ -54,14 +60,58 @@ impl EventHandler for BotEventHandler {
     }
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
-        if let Interaction::Command(command) = interaction {
-            let cmd_name = &command.data.name;
-            match self.bot.cmds.get_command_handler(cmd_name) {
-                Some(handle) => {
-                    handle.run(&ctx, &command).await.expect("Error running command");
-                }
-                None => { println!("Unrecognized command"); }
+        match interaction {
+            Interaction::Modal(modal) => {
+                let data = &modal.data;
+                println!("{data:#?}");
+
+                modal.create_response(&ctx.http, CreateInteractionResponse::Acknowledge).await.unwrap()
+                // on modal submit, update message with embed preview
             }
+
+            Interaction::Command(cmd) => {
+                let cmd_name = &cmd.data.name;
+                match self.bot.cmds.get_command_handler(cmd_name) {
+                    Some(handle) => {
+                        let ctx = CommandContext::new(&self.bot, &ctx, &cmd);
+                        handle.run(ctx).await.expect("Error running command");
+                    }
+                    None => { println!("Unrecognized command"); }
+                }
+            }
+
+            // Prototype modal response for button
+            // Prototype on modal submit, print debug data
+
+            Interaction::Component(comp) => {
+                let data = &comp.data;
+                println!("{data:#?}");
+
+                let timeout = Duration::from_secs(10 * 60);
+
+                // match button id
+                let modal = match data.custom_id.as_str() {
+                    "author" => {
+                        let set_author_field = CreateActionRow::InputText(CreateInputText::new(InputTextStyle::Short, "Set embed author", "embed:author"));
+                        let mut comps = Vec::new();
+                        comps.push(set_author_field);
+                        CreateModal::new("modal:author", "Test modal")
+                            .components(comps)
+                    }
+                    "title" => {
+                        let set_title_field = CreateActionRow::InputText(CreateInputText::new(InputTextStyle::Short, "Set embed title", "embed:title"));
+                        let mut comps = Vec::new();
+                        comps.push(set_title_field);
+                        CreateModal::new("modal:title", "Test modal")
+                            .components(comps)
+                    }
+                    _ => unimplemented!("temp debug code")
+                };
+
+                comp.create_response(&ctx.http, CreateInteractionResponse::Modal(modal)).await.unwrap()
+            }
+
+            _ => {}
         }
     }
 

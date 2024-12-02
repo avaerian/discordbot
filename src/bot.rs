@@ -1,9 +1,11 @@
-use crate::commands::command::{CommandHandler, CommandRegistry};
+use crate::command::{CommandHandler, CommandRegistry};
 use serenity::all::Context;
 use serenity::Error;
+use crate::component::ComponentRegistry;
 
 pub struct BotData {
-    pub cmds: CommandRegistry
+    pub cmds: CommandRegistry,
+    pub components: ComponentRegistry,
 }
 
 impl BotData {
@@ -19,7 +21,8 @@ impl BotData {
 impl Default for BotData {
     fn default() -> Self {
         Self {
-            cmds: CommandRegistry::new()
+            cmds: CommandRegistry::new(),
+            components: ComponentRegistry::new(),
         }
     }
 }

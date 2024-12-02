@@ -1,25 +1,33 @@
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
-use serenity::all::{Command, CommandInteraction, Context, CreateCommand};
+use serenity::all::{Command, CommandInteraction, Context, CreateCommand, Interaction};
 use serenity::{async_trait, Error};
+use crate::bot::BotData;
 
 #[async_trait]
 pub trait CommandHandler: Send + Sync {
     fn register(&self) -> CreateCommand;
-    async fn run(&self, ctx: &Context, interaction: &CommandInteraction) -> Result<(), Error>;
+    async fn run(&self, ctx: CommandContext) -> Result<(), Error>;
+}
+
+pub struct CommandContext<'a> {
+    pub bot: Arc<BotData>,
+    pub ctx: &'a Context,
+    pub interaction: &'a CommandInteraction,
+}
+
+impl CommandContext<'_> {
+    pub fn new(bot: &Arc<BotData>, ctx: &Context, interaction: &CommandInteraction) -> Self {
+        Self {
+            bot: bot.clone(),
+            ctx,
+            interaction
+        }
+    }
 }
 
 pub struct CommandRegistry {
-    // RwLock required only for initial registering of commands :\
     cmds: RwLock<HashMap<String, Arc<dyn CommandHandler>>>,
-}
-
-impl Default for CommandRegistry {
-    fn default() -> Self {
-        Self {
-            cmds: RwLock::new(HashMap::new())
-        }
-    }
 }
 
 impl CommandRegistry {
@@ -46,4 +54,12 @@ impl CommandRegistry {
     }
 
     // register_guild??
+}
+
+impl Default for CommandRegistry {
+    fn default() -> Self {
+        Self {
+            cmds: RwLock::new(HashMap::new()),
+        }
+    }
 }

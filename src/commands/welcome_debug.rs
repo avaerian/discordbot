@@ -3,7 +3,7 @@ use serenity::all::{CommandInteraction, CommandOptionType, Context, CreateComman
 use serenity::{async_trait, Error};
 use std::collections::HashMap;
 use std::fs;
-use crate::commands::command::CommandHandler;
+use crate::command::{CommandContext, CommandHandler};
 
 pub struct DebugWelcomeCommand;
 
@@ -14,7 +14,10 @@ impl CommandHandler for DebugWelcomeCommand {
             .add_option(CreateCommandOption::new(CommandOptionType::User, "user", "The user to test the welcome embed"))
     }
 
-    async fn run(&self, ctx: &Context, interaction: &CommandInteraction) -> Result<(), Error>{
+    async fn run(&self, ctx: CommandContext) -> Result<(), Error> {
+        let interaction = ctx.interaction;
+        let http = &ctx.ctx.http;
+
         let json = fs::read_to_string("test_embed.json").expect("Failed to read test_embed.json");
         let json_parts: HashMap<String, Value> = serde_json::from_str(json.as_str()).expect("Failed to read json sections");
 
@@ -27,6 +30,6 @@ impl CommandHandler for DebugWelcomeCommand {
 
         let data = CreateInteractionResponseMessage::new().add_embeds(embeds);
         let builder = CreateInteractionResponse::Message(data);
-        interaction.create_response(&ctx.http, builder).await
+        interaction.create_response(http, builder).await
     }
 }

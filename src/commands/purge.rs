@@ -1,6 +1,6 @@
 use serenity::all::{Channel, CommandInteraction, CommandOptionType, Context, CreateCommand, CreateCommandOption, CreateInteractionResponse, CreateInteractionResponseMessage, GetMessages, GuildChannel, Message, MessageId, ResolvedOption, ResolvedValue};
 use serenity::{async_trait, Error};
-use crate::commands::command::CommandHandler;
+use crate::command::{CommandContext, CommandHandler};
 
 pub struct PurgeCommand;
 
@@ -15,8 +15,11 @@ impl CommandHandler for PurgeCommand {
             .dm_permission(false)
     }
 
-    async fn run(&self, ctx: &Context, interaction: &CommandInteraction) -> Result<(), Error> {
-        let channel = unwrap_guild_channel(interaction.channel_id.to_channel(&ctx.http).await.expect("Failed to retrieve channel"));
+    async fn run(&self, ctx: CommandContext) -> Result<(), Error> {
+        let interaction = ctx.interaction;
+        let http = &ctx.ctx.http;
+
+        let channel = unwrap_guild_channel(interaction.channel_id.to_channel(http).await.expect("Failed to retrieve channel"));
 
         if let Some(ResolvedOption {
                         value: ResolvedValue::Integer(count),
@@ -26,16 +29,16 @@ impl CommandHandler for PurgeCommand {
             match channel.last_message_id {
                 Some(id) =>  {
                     let builder = GetMessages::new().before(id).limit((*count - 1) as u8);
-                    let messages = channel.messages(&ctx.http, builder).await.expect("Failed to retrieve messages");
+                    let messages = channel.messages(http, builder).await.expect("Failed to retrieve messages");
                     let mut messages: Vec<MessageId> = messages.iter().map(|msg| msg.id).collect();
                     messages.push(id); // include most recent message
                     println!("{messages:#?}");
-                    channel.delete_messages(&ctx.http, &messages).await.expect("Failed to delete messages");
+                    channel.delete_messages(http, &messages).await.expect("Failed to delete messages");
                     println!("Deleted messages successfully!");
 
                     let data = CreateInteractionResponseMessage::new().content(format!("Deleted {} messages", messages.len())).ephemeral(true);
                     let builder = CreateInteractionResponse::Message(data);
-                    return interaction.create_response(&ctx.http, builder).await;
+                    return interaction.create_response(http, builder).await;
                 },
                 None => {
                     println!("No messages to purge in channel");
@@ -45,7 +48,7 @@ impl CommandHandler for PurgeCommand {
             println!("Incorrect argument provided");
         }
 
-        // TODO: log to user in discord
+        // TODO: create bot response for user
 
         Ok(())
     }
