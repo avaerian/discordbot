@@ -1,6 +1,6 @@
-use serenity::all::{Channel, CommandInteraction, CommandOptionType, Context, CreateCommand, CreateCommandOption, CreateInteractionResponse, CreateInteractionResponseMessage, GetMessages, GuildChannel, Message, MessageId, ResolvedOption, ResolvedValue};
-use serenity::{async_trait, Error};
 use crate::command::{CommandContext, CommandHandler};
+use serenity::all::{Channel, CommandOptionType, CreateCommand, CreateCommandOption, CreateInteractionResponse, CreateInteractionResponseMessage, GetMessages, GuildChannel, MessageId, ResolvedOption, ResolvedValue};
+use serenity::{async_trait, Error};
 
 pub struct PurgeCommand;
 
@@ -15,7 +15,7 @@ impl CommandHandler for PurgeCommand {
             .dm_permission(false)
     }
 
-    async fn run(&self, ctx: CommandContext) -> Result<(), Error> {
+    async fn run<'a>(&self, ctx: CommandContext<'a>) -> Result<(), Error> {
         let interaction = ctx.interaction;
         let http = &ctx.ctx.http;
 

@@ -7,7 +7,7 @@ use crate::bot::BotData;
 #[async_trait]
 pub trait CommandHandler: Send + Sync {
     fn register(&self) -> CreateCommand;
-    async fn run(&self, ctx: CommandContext) -> Result<(), Error>;
+    async fn run<'a>(&self, ctx: CommandContext<'a>) -> Result<(), Error>;
 }
 
 pub struct CommandContext<'a> {
@@ -16,8 +16,8 @@ pub struct CommandContext<'a> {
     pub interaction: &'a CommandInteraction,
 }
 
-impl CommandContext<'_> {
-    pub fn new(bot: &Arc<BotData>, ctx: &Context, interaction: &CommandInteraction) -> Self {
+impl<'a> CommandContext<'a> {
+    pub fn new(bot: &Arc<BotData>, ctx: &'a Context, interaction: &'a CommandInteraction) -> CommandContext<'a> {
         Self {
             bot: bot.clone(),
             ctx,

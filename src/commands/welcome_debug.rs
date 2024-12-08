@@ -14,7 +14,7 @@ impl CommandHandler for DebugWelcomeCommand {
             .add_option(CreateCommandOption::new(CommandOptionType::User, "user", "The user to test the welcome embed"))
     }
 
-    async fn run(&self, ctx: CommandContext) -> Result<(), Error> {
+    async fn run<'a>(&self, ctx: CommandContext<'a>) -> Result<(), Error> {
         let interaction = ctx.interaction;
         let http = &ctx.ctx.http;
 
