@@ -3,19 +3,21 @@ pub mod bot;
 pub mod command;
 pub mod component;
 
-use discordbot::{
+use crate::{
     bot::BotData,
     commands::purge::PurgeCommand,
     commands::welcome_debug::DebugWelcomeCommand
 };
-use serenity::all::{ActivityData, CreateActionRow, CreateInputText, CreateInteractionResponse, CreateModal, EventHandler, GatewayIntents, InputTextStyle, Interaction, Message, MessageUpdateEvent, OnlineStatus, Ready, ResumedEvent};
+use serenity::all::{ActivityData, ComponentInteractionDataKind, CreateActionRow, CreateInputText, CreateInteractionResponse, CreateModal, EventHandler, GatewayIntents, InputTextStyle, Interaction, Message, MessageUpdateEvent, OnlineStatus, Ready, ResumedEvent};
 use serenity::client::Context;
 use serenity::{async_trait, Client};
 use std::env;
+use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
-use discordbot::commands::embed_creator::EmbedCreatorCommand;
+use crate::commands::embed_creator::EmbedCreatorCommand;
 use crate::command::CommandContext;
+use crate::component::{ComponentCallback, ComponentContext};
 
 struct BotEventHandler {
     bot: Arc<BotData>
@@ -33,7 +35,7 @@ impl From<Arc<BotData>> for BotEventHandler {
 impl EventHandler for BotEventHandler {
     async fn ready(&self, ctx: Context, event: Ready) {
 
-        let bot = self.bot.clone();
+        let bot = &self.bot;//.clone();
 
         // Register commands
         bot.register_global_command(&ctx, DebugWelcomeCommand).await.expect("Failed to register command");
@@ -61,7 +63,7 @@ impl EventHandler for BotEventHandler {
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
         match interaction {
-            Interaction::Modal(modal) => {
+            Interaction::Modal(modal) => { // called on modal submission (ModalSubmitCallback)
                 let data = &modal.data;
                 println!("{data:#?}");
 
@@ -89,26 +91,17 @@ impl EventHandler for BotEventHandler {
 
                 let timeout = Duration::from_secs(10 * 60);
 
-                // match button id
-                let modal = match data.custom_id.as_str() {
-                    "author" => {
-                        let set_author_field = CreateActionRow::InputText(CreateInputText::new(InputTextStyle::Short, "Set embed author", "embed:author"));
-                        let mut comps = Vec::new();
-                        comps.push(set_author_field);
-                        CreateModal::new("modal:author", "Test modal")
-                            .components(comps)
+                let comp_id = &data.custom_id;
+                match self.bot.get_component_handle(comp_id) {
+                    Some(handle) => {
+                        let ctx = ComponentContext::new(&self.bot, &ctx, &comp);
+                        handle.run(ctx).await.expect("Error handling component");
                     }
-                    "title" => {
-                        let set_title_field = CreateActionRow::InputText(CreateInputText::new(InputTextStyle::Short, "Set embed title", "embed:title"));
-                        let mut comps = Vec::new();
-                        comps.push(set_title_field);
-                        CreateModal::new("modal:title", "Test modal")
-                            .components(comps)
+                    None => {
+                        println!("No component handler registered with id \"{comp_id}\"");
                     }
-                    _ => unimplemented!("temp debug code")
-                };
+                }
 
-                comp.create_response(&ctx.http, CreateInteractionResponse::Modal(modal)).await.unwrap()
             }
 
             _ => {}

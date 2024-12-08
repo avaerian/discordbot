@@ -1,11 +1,9 @@
-use std::collections::HashMap;
-use std::future::Future;
-use std::ops::Deref;
-use std::sync::{Arc, RwLock};
+use crate::bot::BotData;
 use serenity::all::{ComponentInteraction, Context, CreateActionRow};
 use serenity::builder::CreateButton;
-use serenity::Error;
-use crate::bot::BotData;
+use serenity::{async_trait, Error};
+use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
 
 // for caching, as an idea:
 #[non_exhaustive] // ??
@@ -15,12 +13,30 @@ enum Component {
     Rows(Vec<CreateActionRow>),
 }
 
-//type ComponentHandle = dyn Future<Output=dyn Fn(Arc<BotData>, &Context, &ComponentInteraction) -> Result<(), Error>> + 'static + Send + Sync;
-type ComponentHandle = dyn Fn(Arc<BotData>, &Context, &ComponentInteraction) -> (dyn Future<Output=Result<(), Error>> + Send + Sync);
+#[async_trait]
+pub trait ComponentCallback: Send + Sync {
+    async fn run<'a>(&self, ctx: ComponentContext<'a>) -> Result<(), Error>;
+}
 
 pub struct ComponentRegistry {
-    handlers: RwLock<HashMap<String, Box<ComponentHandle>>>
+    handlers: RwLock<HashMap<String, Arc<Box<dyn ComponentCallback>>>>,
     // include cache for Components ???
+}
+
+pub struct ComponentContext<'a> {
+    pub bot: Arc<BotData>,
+    pub ctx: &'a Context,
+    pub interaction: &'a ComponentInteraction
+}
+
+impl<'a> ComponentContext<'a> {
+    pub fn new(bot: &Arc<BotData>, ctx: &'a Context, interaction: &'a ComponentInteraction) -> Self {
+        Self {
+            bot: bot.clone(),
+            ctx,
+            interaction,
+        }
+    }
 }
 
 impl ComponentRegistry {
@@ -28,22 +44,15 @@ impl ComponentRegistry {
         Self::default()
     }
 
-    pub async fn register_component(&self, comp_id: impl AsRef<str>, handle: Box<ComponentHandle>) {
+    pub async fn register_component(&self, comp_id: impl AsRef<str>, handle: impl ComponentCallback + 'static) {
         let mut handlers = self.handlers.write().unwrap();
-        handlers.insert(comp_id.as_ref().to_string(), handle);
+        handlers.insert(comp_id.as_ref().to_string(), Arc::new(Box::new(handle)));
     }
 
-    pub async fn get_component_handle(&self, comp_id: impl AsRef<str>) -> Option<Box<ComponentHandle>> {
+    pub fn get_component_handle(&self, comp_id: impl AsRef<str>) -> Option<Arc<Box<dyn ComponentCallback + 'static>>> {
         let handlers = self.handlers.read().unwrap();
-        match handlers.get(comp_id.as_ref()) {
-            Some(&handle) => {
-                Some(Box::new(handle)) // TODO: come back to here; review Boxing and "Pin"-ning
-            },
-            None => None
-        }
-        //handlers.get(comp_id.as_ref()).cloned()
+        handlers.get(comp_id.as_ref()).cloned()
     }
-
 }
 
 impl Default for ComponentRegistry {
