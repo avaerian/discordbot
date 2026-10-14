@@ -1,0 +1,13 @@
+[package]
+name = "discordbot"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.104"
+dotenv = "0.15.0"
+env = "1.0.1"
+serde = "1.0.229"
+serde_json = "1.0.154"
+serenity = { version = "0.12.5", features = ["client", "model"] }
+tokio = { version = "1.53.3", features = ["rt", "signal", "macros", "rt-multi-thread"] }
